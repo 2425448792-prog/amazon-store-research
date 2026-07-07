@@ -12,6 +12,8 @@ from xml.sax.saxutils import escape
 OUTPUT = Path("亚马逊品牌旗舰店竞品调研.xlsx")
 FONT = "微软雅黑"
 HEADER_COLOR = "1F4E78"
+CONCLUSION_PRACTICES_START_ROW = 26
+CONCLUSION_PRACTICES_END_ROW = 45
 
 SHEETS = {
     "02 竞品清单": ["编号","品牌名称","亚马逊站点","店铺类型","主营品类","品牌旗舰店链接","选择原因","重点参考内容","调研优先级","调研状态","备注"],
@@ -65,11 +67,18 @@ def build_with_openpyxl() -> None:
         ws.row_dimensions[1].height = 24
 
     def add_dv(ws, col_expr, values, start, end):
+        if end < start:
+            raise ValueError(
+                f"Invalid data validation range on {ws.title}: "
+                f"end row {end} is smaller than start row {start}"
+            )
         dv = DataValidation(type="list", formula1='"' + ','.join(values) + '"', allow_blank=True)
         ws.add_data_validation(dv)
-        for col in col_expr.split(":") if ":" in col_expr else [col_expr]:
-            pass
-        dv.add(f"{col_expr}{start}:{col_expr}{end}" if ":" not in col_expr else f"{col_expr.split(':')[0]}{start}:{col_expr.split(':')[1]}{end}")
+        if ":" not in col_expr:
+            dv.add(f"{col_expr}{start}:{col_expr}{end}")
+            return
+        start_col, end_col = col_expr.split(":", 1)
+        dv.add(f"{start_col}{start}:{end_col}{end}")
 
     for title, headers in SHEETS.items():
         ws = wb.create_sheet(title)
@@ -83,8 +92,10 @@ def build_with_openpyxl() -> None:
             ws.append([]); ws.append(["分析维度","竞品普遍做法","优秀店铺做法","常见问题","对我们的启示"])
             for d in ["首页首屏","页面结构","导航设计","产品分类","视觉风格","品牌故事","场景图片","产品卖点","产品展示","页面跳转","转化路径"]: ws.append([d])
             ws.append([]); ws.append(["编号","优秀做法","参考品牌","参考案例编号","适用页面","重要程度","是否建议采用"])
-            for _ in range(20): ws.append([])
-            rows, cols = ws.max_row, 7; ws.freeze_panes="A2"; ws.auto_filter.ref=f"A13:E23"
+            for _ in range(CONCLUSION_PRACTICES_END_ROW - CONCLUSION_PRACTICES_START_ROW + 1): ws.append([])
+            rows, cols = ws.max_row, 7
+            assert rows == CONCLUSION_PRACTICES_END_ROW
+            ws.freeze_panes="A2"; ws.auto_filter.ref=f"A13:E23"
         else:
             ws.append(headers); rows = {"02 竞品清单":21,"03 店铺调研":21,"04 优秀案例":41,"06 装修建议":31}[title]; cols=len(headers)
             for r in range(2, rows+1):
@@ -96,7 +107,10 @@ def build_with_openpyxl() -> None:
         for c in range(1, cols+1): ws.column_dimensions[get_column_letter(c)].width = 18
         for wide in ["D","G"] if title in ["04 优秀案例","06 装修建议"] else ["G"] if title=="03 店铺调研" else []: ws.column_dimensions[wide].width=28
         for key, vals in DROPDOWNS.items():
-            if key[0] == title: add_dv(ws, key[1], vals, 2 if title != "05 调研结论" else 26, rows)
+            if key[0] == title:
+                start_row = 2 if title != "05 调研结论" else CONCLUSION_PRACTICES_START_ROW
+                end_row = rows if title != "05 调研结论" else CONCLUSION_PRACTICES_END_ROW
+                add_dv(ws, key[1], vals, start_row, end_row)
         if title == "03 店铺调研": ws.conditional_formatting.add("AE2:AE21", ColorScaleRule(start_type='num', start_value=1, start_color='F8696B', mid_type='num', mid_value=3, mid_color='FFEB84', end_type='num', end_value=5, end_color='63BE7B'))
     wb.save(OUTPUT)
     load_workbook(OUTPUT).close()
@@ -118,7 +132,7 @@ def fallback_minimal_xlsx() -> None:
     def sheet_xml(title):
         headers = SHEETS[title]
         if title == '05 调研结论':
-            rows = [["指标","数值"],["计划调研店铺数",20],["已录入店铺数",'=COUNTA(\'03 店铺调研\'!B2:B21)'],["已完成调研数",'=COUNTIF(\'03 店铺调研\'!AG2:AG21,"已完成")'],["直接竞品数量",'=COUNTIF(\'03 店铺调研\'!C2:C21,"直接竞品")'],["同品类优秀店铺数量",'=COUNTIF(\'03 店铺调研\'!C2:C21,"同品类优秀店铺")'],["跨品类参考店铺数量",'=COUNTIF(\'03 店铺调研\'!C2:C21,"跨品类参考店铺")'],["平均综合评分",'=IFERROR(ROUND(AVERAGE(\'03 店铺调研\'!AE2:AE21),1),"")'],["最高评分店铺",'=IFERROR(INDEX(\'03 店铺调研\'!B2:B21,MATCH(MAX(\'03 店铺调研\'!AE2:AE21),\'03 店铺调研\'!AE2:AE21,0)),"暂无数据")'],["已收集优秀案例数量",'=COUNTA(\'04 优秀案例\'!A2:A41)'],[],["分析维度","竞品普遍做法","优秀店铺做法","常见问题","对我们的启示"]] + [[d] for d in ["首页首屏","页面结构","导航设计","产品分类","视觉风格","品牌故事","场景图片","产品卖点","产品展示","页面跳转","转化路径"]] + [[],["编号","优秀做法","参考品牌","参考案例编号","适用页面","重要程度","是否建议采用"]] + [[] for _ in range(20)]
+            rows = [["指标","数值"],["计划调研店铺数",20],["已录入店铺数",'=COUNTA(\'03 店铺调研\'!B2:B21)'],["已完成调研数",'=COUNTIF(\'03 店铺调研\'!AG2:AG21,"已完成")'],["直接竞品数量",'=COUNTIF(\'03 店铺调研\'!C2:C21,"直接竞品")'],["同品类优秀店铺数量",'=COUNTIF(\'03 店铺调研\'!C2:C21,"同品类优秀店铺")'],["跨品类参考店铺数量",'=COUNTIF(\'03 店铺调研\'!C2:C21,"跨品类参考店铺")'],["平均综合评分",'=IFERROR(ROUND(AVERAGE(\'03 店铺调研\'!AE2:AE21),1),"")'],["最高评分店铺",'=IFERROR(INDEX(\'03 店铺调研\'!B2:B21,MATCH(MAX(\'03 店铺调研\'!AE2:AE21),\'03 店铺调研\'!AE2:AE21,0)),"暂无数据")'],["已收集优秀案例数量",'=COUNTA(\'04 优秀案例\'!A2:A41)'],[],["分析维度","竞品普遍做法","优秀店铺做法","常见问题","对我们的启示"]] + [[d] for d in ["首页首屏","页面结构","导航设计","产品分类","视觉风格","品牌故事","场景图片","产品卖点","产品展示","页面跳转","转化路径"]] + [[],["编号","优秀做法","参考品牌","参考案例编号","适用页面","重要程度","是否建议采用"]] + [[] for _ in range(CONCLUSION_PRACTICES_END_ROW - CONCLUSION_PRACTICES_START_ROW + 1)]
         else:
             n={"02 竞品清单":20,"03 店铺调研":20,"04 优秀案例":40,"06 装修建议":30}[title]
             rows=[headers]+[[i]+[""]*(len(headers)-1) for i in range(1,n+1)]
