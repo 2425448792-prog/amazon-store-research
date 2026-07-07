@@ -48,6 +48,7 @@ def build_with_openpyxl() -> None:
     from openpyxl.worksheet.datavalidation import DataValidation
     from openpyxl.formatting.rule import ColorScaleRule
     from openpyxl.utils import get_column_letter
+    from openpyxl.utils.cell import range_boundaries
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -66,19 +67,18 @@ def build_with_openpyxl() -> None:
                 c.border = border
         ws.row_dimensions[1].height = 24
 
-    def add_dv(ws, col_expr, values, start, end):
-        if end < start:
+    def add_dv(ws, col_expr, values, start_row, end_row):
+        if end_row < start_row:
             raise ValueError(
-                f"Invalid data validation range on {ws.title}: "
-                f"end row {end} is smaller than start row {start}"
+                f"Invalid data validation range: start_row={start_row}, end_row={end_row}"
             )
         dv = DataValidation(type="list", formula1='"' + ','.join(values) + '"', allow_blank=True)
         ws.add_data_validation(dv)
         if ":" not in col_expr:
-            dv.add(f"{col_expr}{start}:{col_expr}{end}")
+            dv.add(f"{col_expr}{start_row}:{col_expr}{end_row}")
             return
         start_col, end_col = col_expr.split(":", 1)
-        dv.add(f"{start_col}{start}:{end_col}{end}")
+        dv.add(f"{start_col}{start_row}:{end_col}{end_row}")
 
     for title, headers in SHEETS.items():
         ws = wb.create_sheet(title)
@@ -108,12 +108,39 @@ def build_with_openpyxl() -> None:
         for wide in ["D","G"] if title in ["04 优秀案例","06 装修建议"] else ["G"] if title=="03 店铺调研" else []: ws.column_dimensions[wide].width=28
         for key, vals in DROPDOWNS.items():
             if key[0] == title:
-                start_row = 2 if title != "05 调研结论" else CONCLUSION_PRACTICES_START_ROW
-                end_row = rows if title != "05 调研结论" else CONCLUSION_PRACTICES_END_ROW
+                start_row = 26 if title == "05 调研结论" else 2
+                end_row = 45 if title == "05 调研结论" else rows
                 add_dv(ws, key[1], vals, start_row, end_row)
         if title == "03 店铺调研": ws.conditional_formatting.add("AE2:AE21", ColorScaleRule(start_type='num', start_value=1, start_color='F8696B', mid_type='num', mid_value=3, mid_color='FFEB84', end_type='num', end_value=5, end_color='63BE7B'))
     wb.save(OUTPUT)
-    load_workbook(OUTPUT).close()
+
+    assert OUTPUT.exists() and OUTPUT.stat().st_size > 0
+    reloaded = load_workbook(OUTPUT)
+    try:
+        assert reloaded.sheetnames == list(SHEETS)
+        conclusion_dv_ranges = set()
+        for ws in reloaded.worksheets:
+            for dv in ws.data_validations.dataValidation:
+                for cell_range in dv.cells.ranges:
+                    min_col, min_row, max_col, max_row = range_boundaries(str(cell_range))
+                    if min_row > max_row:
+                        raise ValueError(
+                            f"Invalid data validation range: start_row={min_row}, end_row={max_row}"
+                        )
+                    if ws.title == "05 调研结论":
+                        conclusion_dv_ranges.add(str(cell_range))
+        expected_conclusion_ranges = {
+            f"F{CONCLUSION_PRACTICES_START_ROW}:F{CONCLUSION_PRACTICES_END_ROW}",
+            f"G{CONCLUSION_PRACTICES_START_ROW}:G{CONCLUSION_PRACTICES_END_ROW}",
+        }
+        missing_ranges = expected_conclusion_ranges - conclusion_dv_ranges
+        if missing_ranges:
+            raise ValueError(
+                "Missing conclusion data validation ranges: "
+                + ", ".join(sorted(missing_ranges))
+            )
+    finally:
+        reloaded.close()
 
 
 def fallback_minimal_xlsx() -> None:

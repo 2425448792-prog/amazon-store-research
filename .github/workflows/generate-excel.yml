@@ -29,6 +29,46 @@ jobs:
           test -f "亚马逊品牌旗舰店竞品调研.xlsx"
           test -s "亚马逊品牌旗舰店竞品调研.xlsx"
 
+      - name: 使用 openpyxl 验证 Excel 内容
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          from openpyxl import load_workbook
+          from openpyxl.utils.cell import range_boundaries
+
+          output = Path("亚马逊品牌旗舰店竞品调研.xlsx")
+          assert output.exists(), "Excel file does not exist"
+          assert output.stat().st_size > 0, "Excel file is empty"
+
+          wb = load_workbook(output)
+          try:
+              expected_sheets = [
+                  "02 竞品清单",
+                  "03 店铺调研",
+                  "04 优秀案例",
+                  "05 调研结论",
+                  "06 装修建议",
+              ]
+              assert wb.sheetnames == expected_sheets, wb.sheetnames
+
+              conclusion_ranges = set()
+              for ws in wb.worksheets:
+                  for dv in ws.data_validations.dataValidation:
+                      for cell_range in dv.cells.ranges:
+                          min_col, min_row, max_col, max_row = range_boundaries(str(cell_range))
+                          assert min_row <= max_row, (
+                              f"{ws.title} has invalid data validation range: {cell_range}"
+                          )
+                          if ws.title == "05 调研结论":
+                              conclusion_ranges.add(str(cell_range))
+
+              assert "F26:F45" in conclusion_ranges, conclusion_ranges
+              assert "G26:G45" in conclusion_ranges, conclusion_ranges
+          finally:
+              wb.close()
+          PY
+
       - name: 上传 Excel Artifact
         uses: actions/upload-artifact@v4
         with:
