@@ -1,5 +1,6 @@
 # SUPVAN 加密数据文件
 
+- `e10_e11_180d_spend_protected.xlsx`：180天用户消费金额分析；包含核心对比、购机月份、金额分布、异常数据及核验报告。金额标注为估算，完整口径见文件内说明。
 - `e10_e11_value_pivots_protected.xlsx`：最新数据透视版；全体用户与复购用户对比，含周期筛选和联动指标。
 - `e10_e11_buyer_value_protected.xlsx`：按买家分组的数量与购买行为指标，以及专项清洗明细。
 - `amazon_de_wps_protected.xlsx`：德国站全部产品清洗明细。
