@@ -1,7 +1,7 @@
-# SUPVAN 数据文件下载
+# SUPVAN 加密数据文件
 
-`amazon_de_wps_protected.xlsx` 是使用标准 Office 文档口令加密的工作簿。
-点击文件页的 **Download raw file / 下载原始文件**，下载后用 WPS 表格打开。
-打开口令由原聊天单独提供，不保存在此仓库。
+- `e10_e11_buyer_value_protected.xlsx`：最新按买家分组的数量与购买行为指标，以及专项清洗明细。
+- `amazon_de_wps_protected.xlsx`：前一版德国站全部产品清洗明细。
 
-工作簿内含数据说明、来源核验、月度汇总及清洗明细。请妥善保管下载文件及口令。
+下载对应文件的原始文件（Download raw file），用 WPS 表格打开。
+打开口令由原聊天单独提供，不保存在仓库。两份文件使用相同口令。
