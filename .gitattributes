@@ -2,3 +2,4 @@ amazon_all_markets_deduplicated_raw_20261022_protected.xlsx filter=lfs diff=lfs 
 amazon_germany_deduplicated_raw_20261022_protected.xlsx filter=lfs diff=lfs merge=lfs -text
 e10_e11_17_stage_formula_workbook_protected.xlsx filter=lfs diff=lfs merge=lfs -text
 e10_e11_17_stage_buyer_email_workbook_protected.xlsx filter=lfs diff=lfs merge=lfs -text
+e10_e11_17_stage_buyer_email_roll_pv_protected.xlsx filter=lfs diff=lfs merge=lfs -text
